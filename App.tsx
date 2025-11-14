@@ -1,7 +1,7 @@
 
-import React, { useState, useCallback } from 'react';
-import { analyzeRepository } from './services/geminiService';
-import { GitHubIcon, SparklesIcon } from './components/icons';
+import React, { useState, useCallback, useRef } from 'react';
+import { analyzeRepository, buildInitialComponent, modifyComponent } from './services/geminiService';
+import { GitHubIcon, SparklesIcon, RocketLaunchIcon, WandIcon } from './components/icons';
 
 // A simple component to render markdown-like content using regex and Tailwind classes.
 // This avoids needing a full markdown library and is tailored to the expected AI output.
@@ -22,12 +22,21 @@ const SimpleMarkdownViewer: React.FC<{ content: string }> = ({ content }) => {
     );
 };
 
-
 const App: React.FC = () => {
     const [repoUrl, setRepoUrl] = useState<string>('');
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [analysisResult, setAnalysisResult] = useState<string>('');
     const [error, setError] = useState<string>('');
+
+    // State for the new build feature
+    const [showBuildUI, setShowBuildUI] = useState<boolean>(false);
+    const [isBuilding, setIsBuilding] = useState<boolean>(false);
+    const [liveHtml, setLiveHtml] = useState<string>('');
+    const [buildError, setBuildError] = useState<string>('');
+    const [modificationPrompt, setModificationPrompt] = useState<string>('');
+    const [isModifying, setIsModifying] = useState<boolean>(false);
+
+    const buildSectionRef = useRef<HTMLDivElement>(null);
 
     const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -36,6 +45,9 @@ const App: React.FC = () => {
         setIsLoading(true);
         setError('');
         setAnalysisResult('');
+        setShowBuildUI(false);
+        setLiveHtml('');
+        setBuildError('');
 
         try {
             const result = await analyzeRepository(repoUrl);
@@ -46,6 +58,53 @@ const App: React.FC = () => {
             setIsLoading(false);
         }
     }, [repoUrl, isLoading]);
+
+    const handleStartBuild = useCallback(async () => {
+        if (!analysisResult || isBuilding) return;
+
+        setShowBuildUI(true);
+        setIsBuilding(true);
+        setBuildError('');
+        setLiveHtml(`
+            <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; color: #9ca3af; background-color: #111827;">
+                <div style="text-align: center;">
+                    <div style="width: 2rem; height: 2rem; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                    <p>Building from plan...</p>
+                </div>
+            </div>
+            <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+        `);
+        
+        // Scroll to the build section smoothly
+        setTimeout(() => buildSectionRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+
+        try {
+            const result = await buildInitialComponent(analysisResult);
+            setLiveHtml(result);
+        } catch (err: any) {
+            setBuildError(err.message || 'An unexpected error occurred during the build.');
+        } finally {
+            setIsBuilding(false);
+        }
+    }, [analysisResult, isBuilding]);
+
+    const handleModifyBuild = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!modificationPrompt || isModifying) return;
+
+        setIsModifying(true);
+        setBuildError('');
+        try {
+            const result = await modifyComponent(analysisResult, liveHtml, modificationPrompt);
+            setLiveHtml(result);
+            setModificationPrompt('');
+        } catch (err: any) {
+            setBuildError(err.message || 'An unexpected error occurred during modification.');
+        } finally {
+            setIsModifying(false);
+        }
+
+    }, [analysisResult, liveHtml, modificationPrompt, isModifying]);
 
     return (
         <div className="min-h-screen bg-gray-900 font-sans text-gray-100 p-4 sm:p-6 lg:p-8">
@@ -58,7 +117,7 @@ const App: React.FC = () => {
                         AI Repo Rebuilder
                     </h1>
                     <p className="mt-4 max-w-2xl mx-auto text-lg text-gray-400">
-                        Enter a public GitHub repository URL, and our AI will generate a comprehensive plan to rebuild it with a modern tech stack.
+                        Enter a GitHub URL, get a rebuild plan, and then bring it to life with our AI-powered live build tool.
                     </p>
                 </header>
 
@@ -87,7 +146,7 @@ const App: React.FC = () => {
                                 ) : (
                                     <>
                                         <SparklesIcon className="w-5 h-5" />
-                                        <span>Analyze & Rebuild</span>
+                                        <span>Analyze</span>
                                     </>
                                 )}
                             </button>
@@ -108,6 +167,66 @@ const App: React.FC = () => {
                                     Rebuilding Plan Generated
                                 </h2>
                                 <SimpleMarkdownViewer content={analysisResult} />
+                                <div className="mt-8 pt-6 border-t border-gray-700 text-center">
+                                     <button
+                                        onClick={handleStartBuild}
+                                        disabled={isBuilding}
+                                        className="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white font-bold py-4 px-8 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg"
+                                    >
+                                        <RocketLaunchIcon className="w-6 h-6" />
+                                        <span>{isBuilding ? 'Building...' : 'Build this App'}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {showBuildUI && (
+                            <div ref={buildSectionRef} className="mt-12 bg-gray-800/50 border border-gray-700 rounded-xl shadow-2xl transition-opacity duration-500 animate-fade-in">
+                                <div className="p-4 sm:p-6 border-b border-gray-700">
+                                    <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
+                                        Live Build & Iteration
+                                    </h2>
+                                </div>
+                                <div className="p-4 sm:p-6">
+                                    <div className="aspect-video w-full bg-gray-900 rounded-lg border border-gray-600 shadow-inner">
+                                        <iframe
+                                            srcDoc={liveHtml}
+                                            title="Live Preview"
+                                            className="w-full h-full rounded-lg"
+                                            sandbox="allow-scripts"
+                                        />
+                                    </div>
+
+                                    <form onSubmit={handleModifyBuild} className="mt-6">
+                                        <label htmlFor="modification-prompt" className="block text-lg font-medium text-gray-300 mb-2">Modify the component</label>
+                                        <div className="relative">
+                                            <WandIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                                            <input
+                                                id="modification-prompt"
+                                                type="text"
+                                                value={modificationPrompt}
+                                                onChange={(e) => setModificationPrompt(e.target.value)}
+                                                placeholder="e.g., 'Change the primary button color to green'"
+                                                required
+                                                className="w-full pl-10 pr-32 py-3 bg-gray-800 border border-gray-600 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition text-gray-200 placeholder-gray-500"
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={isModifying || !modificationPrompt}
+                                                className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-5 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                                            >
+                                                {isModifying && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                                                <span>Modify</span>
+                                            </button>
+                                        </div>
+                                    </form>
+                                    {buildError && (
+                                        <div className="mt-4 bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-sm" role="alert">
+                                            <strong className="font-bold">Error: </strong>
+                                            <span>{buildError}</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
 

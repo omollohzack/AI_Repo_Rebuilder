@@ -9,6 +9,23 @@ if (!process.env.API_KEY) {
 }
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+const model = "gemini-2.5-pro"; // Using a consistent, powerful model
+
+async function callGemini(prompt: string): Promise<string> {
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        if (error instanceof Error) {
+            throw new Error(`An error occurred while contacting the AI service: ${error.message}`);
+        }
+        throw new Error("An unknown error occurred while contacting the AI service.");
+    }
+}
 
 export async function analyzeRepository(repoUrl: string): Promise<string> {
   if (!repoUrl) {
@@ -70,17 +87,53 @@ export async function analyzeRepository(repoUrl: string): Promise<string> {
     Please ensure your response is professional, clear, and ready to be presented to a development team as a project kickoff document.
   `;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-pro",
-      contents: prompt,
-    });
-    return response.text;
-  } catch (error) {
-    console.error("Error analyzing repository:", error);
-    if (error instanceof Error) {
-      return `An error occurred while contacting the AI service: ${error.message}`;
-    }
-    return "An unknown error occurred while contacting the AI service.";
-  }
+  return callGemini(prompt);
+}
+
+
+export async function buildInitialComponent(plan: string): Promise<string> {
+    const prompt = `
+        Based on the provided project plan, generate a single, complete HTML file using Tailwind CSS for styling.
+
+        IMPORTANT RULES:
+        1.  The response MUST be ONLY the raw HTML code.
+        2.  It MUST include the '<script src="https://cdn.tailwindcss.com"></script>' in the <head> so the styling works.
+        3.  Do NOT include any explanations, markdown formatting, or code fences like \`\`\`html.
+        4.  The HTML should represent the main page, dashboard, or primary view described in the plan.
+        5.  Use a dark theme that is visually appealing and modern.
+
+        PROJECT PLAN:
+        ---
+        ${plan}
+        ---
+    `;
+    return callGemini(prompt);
+}
+
+
+export async function modifyComponent(plan: string, currentHtml: string, modificationPrompt: string): Promise<string> {
+    const prompt = `
+        You are an AI assistant that modifies HTML code. Given the original project plan, the current HTML code, and a modification request, update the code accordingly.
+
+        IMPORTANT RULES:
+        1.  The response MUST be ONLY the new, complete, raw HTML code.
+        2.  Ensure the Tailwind CSS script tag ('<script src="https://cdn.tailwindcss.com"></script>') remains in the <head>.
+        3.  Do NOT include any explanations, markdown formatting, or code fences. Just return the full HTML.
+
+        ORIGINAL PROJECT PLAN:
+        ---
+        ${plan}
+        ---
+
+        CURRENT HTML CODE:
+        ---
+        ${currentHtml}
+        ---
+
+        MODIFICATION REQUEST:
+        ---
+        "${modificationPrompt}"
+        ---
+    `;
+    return callGemini(prompt);
 }
