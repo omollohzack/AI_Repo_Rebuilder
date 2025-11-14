@@ -1,0 +1,5 @@
+{
+  "name": "AI Repo Rebuilder",
+  "description": "Input a GitHub repository URL and get an AI-powered analysis and a comprehensive plan to rebuild the website using modern frontend technologies.",
+  "requestFramePermissions": []
+}
