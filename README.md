@@ -1,20 +1,34 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# AI Repo Rebuilder
 
-# Run and deploy your AI Studio app
+A developer tool that analyses any GitHub repository with AI and helps you rebuild it to modern standards and structure.
 
-This contains everything you need to run your app locally.
+## What it does
 
-View your app in AI Studio: https://ai.studio/apps/drive/105TEkXxVOcmIoJhts1zjZh7_zJW7UCn8
+- Point it at a GitHub repository
+- Get an AI-assisted analysis of the codebase (structure, stack, state)
+- Receive guidance for rebuilding/modernising the project to current standards
 
-## Run Locally
+## Tech stack
 
-**Prerequisites:**  Node.js
+- React 19 + TypeScript
+- Vite 6
+- Google Gemini API (`@google/genai`)
 
+## Run locally
+
+**Prerequisites:** Node.js
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Set your `GEMINI_API_KEY` in `.env.local`
 3. Run the app:
    `npm run dev`
+
+Other scripts: `npm run build` (production build), `npm run preview` (preview the build).
+
+## Status
+
+Working prototype, under active development. Feedback and ideas welcome via Issues.
+
+---
+Built by [Zacharia Omollo](https://github.com/omollohzack) — Full-Stack & Platform Engineer.
